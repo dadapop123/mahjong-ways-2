@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Slot Mahjong Ways 2 – Advanced (Cascade, Scatter & Wild)</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#141414; color:#fff; text-align:center; transition:background .4s; }
+    body.normal { background:#141414; }
+    body.free { background: radial-gradient(circle at top, #3a1c6b, #120018 70%); }
+    h1 { margin:20px 0 5px; }
+    .slot { display:grid; grid-template-columns: repeat(5, 90px); gap:10px; justify-content:center; margin:30px auto; }
+    .cell {
+      width:90px; height:90px; background:#2a2a2a; border-radius:14px;
+      display:flex; align-items:center; justify-content:center; font-size:34px;
+      animation: drop .4s ease;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .wild { box-shadow: inset 0 0 0 3px #6cf, 0 0 12px #6cf; }
+    .scatter { box-shadow: inset 0 0 0 3px #f6c, 0 0 12px #f6c; }
+    .flash { animation: flash .4s ease; }
+    @keyframes drop { from { transform: translateY(-30px); opacity:0 } to { transform: translateY(0); opacity:1 } }
+    @keyframes flash { 0%{filter:brightness(2)} 100%{filter:brightness(1)} }
+    button { padding:12px 30px; font-size:18px; border:none; border-radius:12px; cursor:pointer; background:#e6b800; margin:10px; }
+    button:hover { background:#ffcc00; }
+    .panel { font-size:18px; margin-top:15px; }
+  </style>
+</head>
+<body class="normal">
+
+<h1>🎰 Mahjong Ways 2</h1>
+<p>Demo Advance – Cascade, Scatter & Wild</p>
+
+<div class="slot" id="slot"></div>
+
+<button onclick="spin()">SPIN</button>
+
+<div class="panel">
+  <p>Saldo: <span id="saldo">1000</span></p>
+  <p>Multiplier: x<span id="multi">1</span></p>
+  <p>Free Spin: <span id="free">0</span></p>
+  <p id="hasil"></p>
+</div>
+
+<script>
+  const rows = 4, cols = 5;
+  const BASE = ['🀄','🐉','🧧','💎','🔥'];
+  const WILD = '🌟';
+  const SCATTER = '🎴';
+
+  let saldo = 1000, bet = 50, multiplier = 1, freeSpin = 0, freeMode = false;
+
+  const slotEl = document.getElementById('slot');
+  const saldoEl = document.getElementById('saldo');
+  const multiEl = document.getElementById('multi');
+  const freeEl = document.getElementById('free');
+  const hasilEl = document.getElementById('hasil');
+
+  function randSym(){
+    const r = Math.random();
+    if (r < 0.08) return SCATTER;
+    if (r < 0.14) return WILD;
+    return BASE[Math.floor(Math.random()*BASE.length)];
+  }
+
+  function drawGrid(grid){
+    slotEl.innerHTML='';
+    grid.forEach(s=>{
+      const d=document.createElement('div');
+      d.className='cell'; d.textContent=s;
+      if (s===WILD) d.classList.add('wild');
+      if (s===SCATTER) d.classList.add('scatter');
+      slotEl.appendChild(d);
+    });
+  }
+
+  function newGrid(){
+    const g=[];
+    for(let i=0;i<rows*cols;i++) g.push(randSym());
+    return g;
+  }
+
+  function scatterBonus(grid){
+    const sc = grid.filter(s=>s===SCATTER).length;
+    if (sc>=5) return 15;
+    if (sc>=4) return 10;
+    if (sc>=3) return 5;
+    return 0;
+  }
+
+  function calcWin(grid){
+    const count={}; let wild=0; let pos=[];
+    grid.forEach((s,i)=>{
+      if(s===WILD) wild++;
+      else if(s!==SCATTER) count[s]=(count[s]||0)+1;
+    });
+    let win=0;
+    Object.entries(count).forEach(([sym,c])=>{
+      const total=c+wild;
+      if(total>=8){ win+=100; grid.forEach((s,i)=>{ if(s===sym||s===WILD) pos.push(i); }); }
+      if(total>=10) win+=200;
+      if(total>=12) win+=300;
+    });
+    return {win,pos};
+  }
+
+  function applyVisual(){ document.body.className = freeMode ? 'free' : 'normal'; }
+
+  function spin(){
+    if(freeSpin===0 && saldo<bet){ hasilEl.textContent='Saldo tidak cukup'; return; }
+
+    if(freeSpin>0){ freeSpin--; freeMode=true; multiplier++; }
+    else { saldo-=bet; freeMode=false; multiplier=1; }
+
+    applyVisual();
+
+    let grid=newGrid();
+    drawGrid(grid);
+
+    const fs=scatterBonus(grid);
+    const res=calcWin(grid);
+
+    if(res.win>0){
+      const cells=document.querySelectorAll('.cell');
+      res.pos.forEach(i=>cells[i].classList.add('flash'));
+
+      setTimeout(()=>{
+        res.pos.forEach(i=>grid[i]=null);
+        for(let c=0;c<cols;c++){
+          let col=[];
+          for(let r=rows-1;r>=0;r--){
+            const idx=r*cols+c;
+            if(grid[idx]) col.push(grid[idx]);
+          }
+          while(col.length<rows) col.push(randSym());
+          for(let r=rows-1;r>=0;r--){ grid[r*cols+c]=col[rows-1-r]; }
+        }
+        drawGrid(grid);
+      },400);
+
+      const totalWin=res.win*multiplier;
+      saldo+=totalWin;
+      hasilEl.textContent = freeMode ? `✨ CASCADE FREE WIN ${totalWin} (x${multiplier})` : `💥 CASCADE WIN ${totalWin}`;
+    } else {
+      hasilEl.textContent = freeMode ? `Free Spin tanpa win (x${multiplier})` : 'Tidak menang';
+    }
+
+    if(fs>0){ freeSpin+=fs; hasilEl.textContent+=` +${fs} Free Spin!`; }
+
+    saldoEl.textContent=saldo;
+    multiEl.textContent=multiplier;
+    freeEl.textContent=freeSpin;
+  }
+
+  drawGrid(newGrid());
+</script>
+</body>
+</html>
